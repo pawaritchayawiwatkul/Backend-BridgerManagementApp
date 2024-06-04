@@ -106,23 +106,26 @@ WSGI_APPLICATION = 'wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'postgres',
-#        'USER': 'postgres',
-#        'PASSWORD': 'Pluem9988!',
-#        'HOST': 'localhost',
-#        'PORT': '5432',
-#     }
-# }
-# Use django-environ to parse the connection string
-DATABASES = {"default": env.db()}
+# # Use django-environ to parse the connection string
+# DATABASES = {"default": env.db()}
 
-# If the flag as been set, configure to use proxy
-if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
-    DATABASES["default"]["HOST"] = "127.0.0.1"
-    DATABASES["default"]["PORT"] = 5432
+# # If the flag as been set, configure to use proxy
+# if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
+#     print("DATAVASE THROUGH DEVICE")
+#     DATABASES["default"]["HOST"] = "127.0.0.1"
+#     DATABASES["default"]["PORT"] = 5432
+
+# ON DEPLOY
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'HOST': '35.227.141.24',
+        'USER': 'pawarit',
+        'PASSWORD': 'Pluem9988!',
+        'NAME': 'postgres',
+    }
+}
+
 
 # [END gaeflex_py_django_database_config]
 # [END dbconfig]
