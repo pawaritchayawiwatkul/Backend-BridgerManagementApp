@@ -1,14 +1,16 @@
 from django.db import models
 from core.models import User
 from school.models import School, Course
-import uuid
-import secrets
+
 # Create your models here.
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, models.CASCADE)
     course = models.ManyToManyField(Course, related_name="teachers")
-    school = models.ForeignKey(School, models.CASCADE)
+    school = models.ForeignKey(School, models.CASCADE, related_name="teachers")
+
+    def __str__(self) -> str:
+        return self.user.__str__()
 
 class UnavailableTimeOneTime(models.Model):
     datetime = models.DateTimeField()

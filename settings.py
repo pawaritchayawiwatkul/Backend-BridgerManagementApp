@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'djoser',
 
     'debug_toolbar',
-
     'teacher',
     'student',
     'school',
@@ -87,12 +86,23 @@ DATABASES = {
      'default': {
          'ENGINE': 'django.db.backends.postgresql_psycopg2',
          'NAME':'postgres',
-         'USER':'pawarit',
+         'USER':'postgres',
          'PASSWORD':'Pluem9988!',
          'HOST':'bridgerdbforapi.cluster-custom-cbk2c84q29qh.ap-southeast-2.rds.amazonaws.com',
          'PORT':'5432'
      }
     }
+# DATABASES = {
+#     'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': 'postgres',
+#        'USER': 'postgres',
+#        'PASSWORD': 'Pluem9988!',
+#        'HOST': 'localhost',
+#        'PORT': '5432',
+#     }
+# }
+
 
 # [END gaeflex_py_django_database_config]
 # [END dbconfig]
@@ -154,16 +164,19 @@ REST_FRAMEWORK = {
 }
 
 DJOSER = {
+    "LOGIN_FIELD": "email",
     'SERIALIZERS' : {
         'user_create': 'core.serializers.UserCreateSerializer',
-        # 'user': 'core.serializers.UserSerializer'
-    },
+        "user": "djoser.serializers.UserSerializer",
+        "current_user": "djoser.serializers.UserSerializer",
+        "user_delete": "djoser.serializers.UserSerializer",    
+        },
 }
 
 SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('JWT',),
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=10),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365*100),
 }
 
 AUTH_USER_MODEL = 'core.User'
@@ -171,4 +184,3 @@ AUTH_USER_MODEL = 'core.User'
 DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TOOLBAR_CALLBACK": lambda request: True,
 }
-

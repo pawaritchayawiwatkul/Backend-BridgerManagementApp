@@ -19,6 +19,10 @@ class CourseRegistration(models.Model):
     used_lessons = models.IntegerField(default=0)
     completed = models.BooleanField(default=False)
 
+    def __str__(self) -> str:
+        return f"{self.student.__str__()} {self.course.__str__()} {self.teacher.__str__()}"
+
+
 class StudentTeacherRelation(models.Model):
     student = models.ForeignKey("Student", on_delete=models.CASCADE, related_name="teacher_relation")
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="student_relation")
@@ -32,8 +36,12 @@ class Student(models.Model):
     teacher = models.ManyToManyField(to=Teacher, through=StudentTeacherRelation, related_name="student")
     user = models.OneToOneField(User, models.CASCADE)
 
+    def __str__(self) -> str:
+        return self.user.__str__()
+
 class Lesson(models.Model):
     notes = models.CharField(max_length=300, blank=True)
+    confirmed = models.BooleanField(default=False)
     booked_datetime = models.DateTimeField()
     attended = models.BooleanField(default=False)
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE)

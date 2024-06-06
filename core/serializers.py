@@ -1,6 +1,6 @@
 from student.models import Student
 from teacher.models import Teacher
-# from schools.models import School
+from school.models import School
 from django.db import IntegrityError
 from djoser.serializers import UserSerializer as BaseUserSerializer, UserCreateSerializer as BaseUserCreateSerializer
 from rest_framework.serializers import ModelSerializer, CharField
@@ -21,9 +21,13 @@ User = get_user_model()
 ALL_FIELDS = '__all__'
 
 class UserCreateSerializer(BaseUserCreateSerializer):
-    class Meta(BaseUserCreateSerializer.Meta):
-        fields = ['password', 'email', 'first_name', 'last_name', 'is_teacher', 'birth_date', 'phone_number']
+    school_name = serializers.CharField()
+    school_description = serializers.CharField()
     
+    class Meta(BaseUserCreateSerializer.Meta):
+        fields = ['password', 'email', 'first_name', 'last_name', 'is_teacher', 'phone_number', "school_name", "school_description", ]
+        non_native_fields = ["school_name", "school_description",]
+
     def to_native(self, obj):
         """
         Serialize objects -> primitives.
@@ -33,7 +37,7 @@ class UserCreateSerializer(BaseUserCreateSerializer):
 
         for field_name, field in self.fields.items():
             # --- BEGIN EDIT --- #
-            if field_name in self.opts.non_native_fields:
+            if field_name in self.Meta.non_native_fields:
                 continue
             # --- END --- #
             field.initialize(parent=self, field_name=field_name)
@@ -44,18 +48,26 @@ class UserCreateSerializer(BaseUserCreateSerializer):
         return ret
     
     def create(self, validated_data):
+        school_data = {
+            "name": validated_data.pop("school_name"),
+            "description": validated_data.pop("school_description"),
+        }
         try:
-            validated_data["username"] = f'{validated_data["first_name"]} {validated_data["last_name"]}'
             user = self.perform_create(validated_data)
         except IntegrityError:
             self.fail("cannot_create_user")
         if user.is_teacher:
+            school = School.objects.create(
+                name=school_data['name'],
+                description=school_data['description']
+            )
             Teacher.objects.create(
-                user=user,
+                user_id=user.id,
+                school_id=school.id
             )
         else:
             Student.objects.create(
-                user=user, 
+                user_id=user.id 
             )
         return user
 
@@ -77,6 +89,8 @@ class UserCreateSerializer(BaseUserCreateSerializer):
         ret = {}
         fields = self._readable_fields
         for field in fields:
+            if field.field_name in self.Meta.non_native_fields:
+                continue
             try:
                 attribute = field.get_attribute(instance)
             except SkipField:

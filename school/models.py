@@ -13,6 +13,11 @@ class School(models.Model):
     def __str__(self) -> str:
         return self.name
     
+    def number_of_teachers(self):
+        return self.teachers.count()
+    number_of_teachers.short_description = 'Number of Teachers'
+
+    
 class Course(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=300)

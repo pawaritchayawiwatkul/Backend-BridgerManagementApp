@@ -9,7 +9,7 @@ from student.models import CourseRegistration, Student, Course, Lesson, StudentT
 from teacher.models import UnavailableTimeOneTime, UnavailableTimeRegular, Teacher
 from django.utils import timezone
 from datetime import timedelta, datetime
-from django.db.models import Count, F
+from django.db.models import Count, F, Func, Value, CharField
 from datetime import datetime
 from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from django.core.exceptions import ValidationError
@@ -75,7 +75,12 @@ class CourseViewset(ViewSet):
         booked_lessons = Lesson.objects.filter(
             registration=regis,
             booked_datetime__date=date
-        ).values_list("booked_datetime", flat=True)
+        ).annotate(time=Func(
+            F('booked_datetime'),
+            Value('HH:MM:SS'),
+            function='to_char',
+            output_field=CharField()
+        )).values_list("time", flat=True)
         unavailable_regular = UnavailableTimeRegular.objects.filter(
             teacher=regis.teacher,
             day=str(day_number)
@@ -84,11 +89,15 @@ class CourseViewset(ViewSet):
         unavailable_times = UnavailableTimeOneTime.objects.filter(
             teacher=regis.teacher, 
             datetime__date=date
-        ).values_list("datetime", "duration")
+        ).annotate(time=Func(
+            F('datetime'),
+            Value('HH:MM:SS'),
+            function='to_char',
+            output_field=CharField()
+        )).values_list("time", "duration")
         return Response(data={
-            'available'
-            "lessons": {
-                "booked": list(booked_lessons),
+            "booked_lessons": {
+                "time": list(booked_lessons),
                 "duration": regis.course.duration
             },
             "unavailable": list(unavailable_regular) + list(unavailable_times)
@@ -115,15 +124,20 @@ class CourseViewset(ViewSet):
 
 @permission_classes([IsAuthenticated])
 class LessonViewset(ViewSet):
-    def week(self, request):
-        start_of_week = request.data.get("start")
-        end_of_week = request.data.get("end")
-        if start_of_week and end_of_week:
+    def range(self, request):
+        start_of_range = request.data.get("start")
+        end_of_range = request.data.get("end")
+        if start_of_range and end_of_range:
+            filters = {
+                "registration__student__user_id": request.user.id,
+                "booked_datetime__date__range": [start_of_range, end_of_range]
+            }
+            if request.data.get("confirmed"):
+                filters['confirmed'] = True
+            else:
+                filters['confirmed'] = False
             try:
-                lessons = Lesson.objects.filter(
-                    registration__student__user_id=request.user.id,
-                    booked_datetime__date__range=[start_of_week, end_of_week]
-                    )
+                lessons = Lesson.objects.filter(**filters)
             except ValidationError as e:
                 return Response({"error_message": e}, status=400)
             ser = ListLessonSerializer(instance=lessons, many=True)

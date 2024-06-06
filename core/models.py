@@ -1,5 +1,5 @@
 from django.db.models import EmailField, CharField, UUIDField, DateField, BooleanField, IntegerField
-from django.contrib.auth.models import PermissionsMixin, UserManager, AbstractUser
+from django.contrib.auth.models import PermissionsMixin, UserManager, BaseUserManager
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db.models.fields import BooleanField
@@ -8,7 +8,31 @@ import uuid
 from django.utils.translation import gettext_lazy as _
 
 # Create your models here.
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password, **extra_fields):
+        if not email:
+            return ValueError(_("Email field is required"))
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save()
+        return user
 
+    def create_superuser(self, email, password, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('is_admin', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError(_("Superuser must have is_staff=True. "))
+        elif extra_fields.get('is_superuser') is not True:
+            raise ValueError(_("Superuser must have is_superuser=True. "))
+        elif extra_fields.get('is_admin') is not True:
+            raise ValueError(_("Superuser must have is_admin=True. "))
+        
+        return self.create_user(email, password, **extra_fields)
+    
 class User(AbstractBaseUser, PermissionsMixin):
     email = EmailField(unique=True)
     first_name = CharField(max_length=255)
@@ -16,7 +40,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = CharField(max_length=10)
     password = CharField(max_length=255)
     uuid = UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    birth_date = DateField()
     is_teacher = BooleanField(default=True)
     is_admin = BooleanField(default=False)
     is_staff = BooleanField(
@@ -24,21 +47,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
-    username_validator = UnicodeUsernameValidator()
-
-    username = CharField(
-        _("username"),
-        max_length=150,
-        unique=True,
-        help_text=_(
-            "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
-        ),
-        validators=[username_validator],
-        error_messages={
-            "unique": _("A user with that username already exists."),
-        },
-    )
-         
+    
     is_active = BooleanField(
         _("active"),
         default=True,
@@ -47,14 +56,23 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Unselect this instead of deleting accounts."
         ),
     )
-    objects = UserManager()
+    objects = CustomUserManager()
 
-    EMAIL_FIELD = "email"
-    USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["email"]
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["first_name", "last_name"]
 
+    def get_full_name(self):
+        return f"{self.first_name} - {self.last_name}"
+
+    def get_short_name(self):
+        return self.first_name
+    
     def has_perm(self, perm: str, obj=True) -> bool:
         return self.is_admin
     
     def has_module_perms(self, app_label: str) -> bool:
         return True
+
+    def __str__(self):
+        return self.first_name
+    

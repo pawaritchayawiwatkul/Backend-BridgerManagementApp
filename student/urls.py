@@ -32,8 +32,8 @@ lessonRecentView = views.LessonViewset.as_view({
     'get': 'recent',
 })
 
-lessonWeekView = views.LessonViewset.as_view({
-    'get': 'week',
+lessonRangeView = views.LessonViewset.as_view({
+    'get': 'range',
 })
 
 teacherListView = views.TeacherViewset.as_view({
@@ -44,6 +44,7 @@ profileView = views.ProfileViewSet.as_view({
     'get': 'retrieve',
     'put': 'update'
 })
+
 # Enter URL path below
 urlpatterns = format_suffix_patterns([
     path('profile/', profileView, name='course'),
@@ -53,7 +54,7 @@ urlpatterns = format_suffix_patterns([
     path('course/<slug:code>/availabletime', courseATview, name='course-available-time'),
     
     path('lesson/', lessonView, name='lesson'),
-    path('lesson/week', lessonWeekView, name='lesson-week'),
+    path('lesson/range', lessonRangeView, name='lesson-week'),
     path('lesson/day', lessonDayView, name='lesson-day'),
     path('lesson/recent', lessonRecentView, name='lesson-day'),
     path('lesson/progress/<slug:progress_type>', lessonProgressView, name='course-detail'),
