@@ -21,8 +21,8 @@ User = get_user_model()
 ALL_FIELDS = '__all__'
 
 class UserCreateSerializer(BaseUserCreateSerializer):
-    school_name = serializers.CharField()
-    school_description = serializers.CharField()
+    school_name = serializers.CharField(required=False)
+    school_description = serializers.CharField(required=False)
     
     class Meta(BaseUserCreateSerializer.Meta):
         fields = ['password', 'email', 'first_name', 'last_name', 'is_teacher', 'phone_number', "school_name", "school_description", ]
@@ -48,18 +48,18 @@ class UserCreateSerializer(BaseUserCreateSerializer):
         return ret
     
     def create(self, validated_data):
-        school_data = {
-            "name": validated_data.pop("school_name"),
-            "description": validated_data.pop("school_description"),
-        }
         try:
             user = self.perform_create(validated_data)
         except IntegrityError:
             self.fail("cannot_create_user")
         if user.is_teacher:
+            school_name = validated_data.pop("school_name")
+            school_desc = validated_data.pop("school_description")
+            if not school_name or not school_desc:
+                self.fail("please_provide_school_info") 
             school = School.objects.create(
-                name=school_data['name'],
-                description=school_data['description']
+                name=school_name,
+                description=school_desc
             )
             Teacher.objects.create(
                 user_id=user.id,

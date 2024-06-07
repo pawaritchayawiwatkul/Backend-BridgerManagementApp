@@ -9,7 +9,7 @@ import secrets
 
 class CourseRegistration(models.Model):
     registered_date = models.DateField(auto_now_add=True)
-    finised_date = models.DateField(null=True)
+    finised_date = models.DateField(null=True, blank=True)
     course = models.ForeignKey(to=Course, on_delete=models.PROTECT, related_name="registration")
     student = models.ForeignKey(to="Student", on_delete=models.CASCADE, related_name="registration")
     finished = models.BooleanField(default=False)

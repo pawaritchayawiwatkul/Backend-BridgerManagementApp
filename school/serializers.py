@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from teacher.models import Teacher
 from school.models import Course
+
 class CourseSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=100)
