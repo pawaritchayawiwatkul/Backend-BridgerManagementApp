@@ -82,27 +82,27 @@ WSGI_APPLICATION = 'wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Use django-environ to parse the connection string
-# DATABASES = {
-#      'default': {
-#          'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#          'NAME':'postgres',
-#          'USER':'postgres',
-#          'PASSWORD':'Pluem9988!',
-#          'HOST':'bridgerdbforapi.cluster-custom-cbk2c84q29qh.ap-southeast-2.rds.amazonaws.com',
-#          'PORT':'5432'
-#      }
-#     }
-
 DATABASES = {
-    'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'postgres',
-       'USER': 'postgres',
-       'PASSWORD': 'Pluem9988!',
-       'HOST': 'localhost',
-       'PORT': '5432',
+     'default': {
+         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+         'NAME':'postgres',
+         'USER':'postgres',
+         'PASSWORD':'Pluem9988!',
+         'HOST':'bridgerdbforapi.cluster-custom-cbk2c84q29qh.ap-southeast-2.rds.amazonaws.com',
+         'PORT':'5432'
+     }
     }
-}
+
+# DATABASES = {
+#     'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': 'postgres',
+#        'USER': 'postgres',
+#        'PASSWORD': 'Pluem9988!',
+#        'HOST': 'localhost',
+#        'PORT': '5432',
+#     }
+# }
 
 
 # [END gaeflex_py_django_database_config]
