@@ -47,7 +47,9 @@ class TeacherViewset(ViewSet):
 @permission_classes([IsAuthenticated])
 class CourseViewset(ViewSet):
     def list(self, request):
-        teacher_uuid = request.data.get("teacher_uuid")
+        teacher_uuid = request.GET.get("teacher_uuid")
+        if not teacher_uuid:
+            return Response({"error_messages": ["Please Techer ID"]}, status=400)
         filters = {
             'student__user_id': request.user.id,
         }
@@ -66,10 +68,13 @@ class CourseViewset(ViewSet):
         return Response(ser.data)
 
     def get_available_time(self, request, code):
-        date_str = request.data.get("date")
+        date_str = request.GET.get("date", None)
         if not date_str:
             return Response({"error_messages": ["Please Provide Date"]}, status=400)
-        date = datetime.strptime(date_str, "%Y-%m-%d")
+        try:
+            date = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return Response({"error_message": ["Invalid Date Format"]}, status=400)
         day_number = date.weekday() + 1
         regis = CourseRegistration.objects.select_related('teacher', 'course').get(uuid=code)
         booked_lessons = Lesson.objects.filter(
@@ -125,17 +130,18 @@ class CourseViewset(ViewSet):
 @permission_classes([IsAuthenticated])
 class LessonViewset(ViewSet):
     def range(self, request):
-        start_of_range = request.data.get("start")
-        end_of_range = request.data.get("end")
+        start_of_range = request.GET.get("start")
+        end_of_range = request.GET.get("end")
         if start_of_range and end_of_range:
             filters = {
                 "registration__student__user_id": request.user.id,
                 "booked_datetime__date__range": [start_of_range, end_of_range]
             }
-            if request.data.get("confirmed"):
-                filters['confirmed'] = True
-            else:
+            print(request.GET.get("confirmed"))
+            if request.GET.get("confirmed", "false") == "false":
                 filters['confirmed'] = False
+            else:
+                filters['confirmed'] = True
             try:
                 lessons = Lesson.objects.filter(**filters)
             except ValidationError as e:
@@ -146,10 +152,13 @@ class LessonViewset(ViewSet):
             return Response({"error_message": ["Start or end is empty", ]}, status=400)
 
     def progress(self, request, progress_type):
-        today_date = request.data.get("date_of_today")
-        today_date = datetime.strptime(today_date, "%Y-%m-%d")
+        today_date = request.GET.get("date_of_today", "")
         if not today_date:
             return Response({"error_message": ["Please enter today's date", ]}, status=400)
+        try:
+            today_date = datetime.strptime(today_date, "%Y-%m-%d")
+        except ValueError:
+            return Response({"error_message": ["Invalid Date Format"]}, status=400)
         if progress_type == "daily":
             seven_days_ago = today_date - timedelta(days=7)
             stop_day = today_date + timedelta(days=1)
@@ -193,7 +202,7 @@ class LessonViewset(ViewSet):
         filters = {
             "registration__student__user_id": request.user.id
         }
-        teacher_uuid = request.data.get("teacher_uuid")
+        teacher_uuid = request.GET.get("teacher_uuid")
         if teacher_uuid:
             # Assuming you have a Teacher model with a UUID field
             teacher = get_object_or_404(Teacher, user__uuid=teacher_uuid)
@@ -203,7 +212,9 @@ class LessonViewset(ViewSet):
         return Response(ser.data, status=200)
     
     def day(self, request):
-        date = request.data.get("date")
+        date = request.GET.get('date', None)
+        if not date:
+            return Response(status=400)
         lessons = Lesson.objects.select_related("registration__teacher__user").filter(
             registration__student__user_id=request.user.id,
             booked_datetime__date=date,
