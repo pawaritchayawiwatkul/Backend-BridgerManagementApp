@@ -45,9 +45,14 @@ profileView = views.ProfileViewSet.as_view({
     'put': 'update'
 })
 
+profileAddView = views.ProfileViewSet.as_view({
+    'post': 'add'
+})
+
 # Enter URL path below
 urlpatterns = format_suffix_patterns([
-    path('profile/', profileView, name='course'),
+    path('profile/', profileView, name='profile'),
+    path('profile/add/<slug:teacher_uuid>', profileAddView, name='profile-add'),
 
     path('course/', courseView, name='course'),
     path('course/<slug:code>/', courseDetailView, name='course-detail'),

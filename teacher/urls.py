@@ -4,12 +4,18 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 app_name = 'teacher'
 
-# courseView = views.CourseViewset.as_view({
-#     # 'get': 'list',
-#     'post': 'create'
-# })
+profileAddView = views.ProfileViewSet.as_view({
+    'post': 'add'
+})
+
+profileView = views.ProfileViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update'
+})
+
 
 # Enter URL path below
 urlpatterns = format_suffix_patterns([
-    # path('course/', courseView, name='course'),
+    path('profile/', profileView, name='profile'),
+    path('profile/add/<slug:student_uuid>', profileAddView, name='profile-add'),
 ])

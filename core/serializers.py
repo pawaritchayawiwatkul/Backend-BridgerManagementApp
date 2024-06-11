@@ -23,9 +23,10 @@ ALL_FIELDS = '__all__'
 class UserCreateSerializer(BaseUserCreateSerializer):
     school_name = serializers.CharField(required=False)
     school_description = serializers.CharField(required=False)
+    uuid = serializers.CharField(required=False)
     
     class Meta(BaseUserCreateSerializer.Meta):
-        fields = ['password', 'email', 'first_name', 'last_name', 'is_teacher', 'phone_number', "school_name", "school_description", ]
+        fields = ['password', 'email', 'first_name', 'last_name', 'is_teacher', 'phone_number', "school_name", "uuid", "school_description", ]
         non_native_fields = ["school_name", "school_description",]
 
     def to_native(self, obj):
@@ -48,13 +49,14 @@ class UserCreateSerializer(BaseUserCreateSerializer):
         return ret
     
     def create(self, validated_data):
+        validated_data.pop("uuid", None)
+        school_name = validated_data.pop("school_name", None)
+        school_desc = validated_data.pop("school_description", None)
         try:
             user = self.perform_create(validated_data)
         except IntegrityError:
             self.fail("cannot_create_user")
         if user.is_teacher:
-            school_name = validated_data.pop("school_name")
-            school_desc = validated_data.pop("school_description")
             if not school_name or not school_desc:
                 self.fail("please_provide_school_info") 
             school = School.objects.create(
@@ -105,4 +107,4 @@ class UserCreateSerializer(BaseUserCreateSerializer):
 
 class UserSerializer(BaseUserSerializer):
     class Meta(BaseUserSerializer.Meta):
-        fields = ['email', 'full_name']
+        fields = ['email', 'full_name', 'uuid']

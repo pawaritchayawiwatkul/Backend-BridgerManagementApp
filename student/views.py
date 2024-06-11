@@ -35,7 +35,16 @@ class ProfileViewSet(ViewSet):
             return Response(status=200)
         else:
             return Response(ser.errors, status=400)
-
+        
+    def add(self, request, teacher_uuid):
+        teacher = get_object_or_404(Teacher, user__uuid=teacher_uuid)
+        user = request.user
+        student = get_object_or_404(Student, user_id=user.id)
+        if not student.teacher.filter(id=teacher.id).exists():
+            student.teacher.add(teacher)
+            student.school.add(teacher.school_id)        
+        return Response(status=200)    
+    
 @permission_classes([IsAuthenticated])
 class TeacherViewset(ViewSet):
     def list(self, request):

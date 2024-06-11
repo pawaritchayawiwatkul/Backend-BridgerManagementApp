@@ -104,11 +104,12 @@ class ProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name", required=False)
     last_name = serializers.CharField(source="user.last_name", required=False)
     phone_number = serializers.CharField(source="user.phone_number", required=False)
+    uuid = serializers.CharField(source="user.uuid", required=False)
     email = serializers.CharField(source="user.email", required=False)
 
     class Meta:
         model = Student
-        fields = ("first_name", "last_name", "phone_number", "email")
+        fields = ("first_name", "last_name", "phone_number", "email", "uuid")
 
     def update(self, instance, validated_data):
         user_data = validated_data.get('user')
