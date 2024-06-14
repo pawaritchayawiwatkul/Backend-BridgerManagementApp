@@ -93,14 +93,26 @@ WSGI_APPLICATION = 'wsgi.application'
 #      }
 #     }
 
+# DATABASES = {
+#     'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': 'postgres',
+#        'USER': 'postgres',
+#        'PASSWORD': 'Pluem9988!',
+#        'HOST': 'localhost',
+#        'PORT': '5432',
+#     }
+# }
+
+
 DATABASES = {
     'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'postgres',
+       'ENGINE': 'django.db.backends.postgresql_psycopg2',
+       'NAME': 'railway',
+       'HOST': 'monorail.proxy.rlwy.net',
        'USER': 'postgres',
-       'PASSWORD': 'Pluem9988!',
-       'HOST': 'localhost',
-       'PORT': '5432',
+       'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
+       'PORT': '15052',
     }
 }
 
