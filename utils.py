@@ -1,47 +1,52 @@
 from rest_framework import serializers
+from teacher.models import UnavailableTimeOneTime
+def merge_schedule(validated_data, unavailables):
+    new_start = validated_data['start']
+    new_stop = validated_data['stop']
+    overlap = []
+    for interval in unavailables:
+        start = interval.start
+        stop = interval.stop
+        _ = False
+        if start > new_stop:
+            # print('1')
+            continue
+        elif stop < new_start:
+            # print('2')
+            continue
+        if start <= new_start:
+            # print('3')
+            new_start = start
+            _ = True
+        if stop >= new_stop:
+            # print('4')
+            new_stop = stop
+            _ = True
+        overlap.append(interval)
+        # print('5')
 
+    validated_data['start'] = new_start
+    validated_data['stop'] = new_stop
+    return validated_data, overlap
 
-class ExtensibleModelSerializerOptions(serializers.SerializerOptions):
-    """
-    Meta class options for ModelSerializer
-    """
-    def __init__(self, meta):
-        super(ExtensibleModelSerializerOptions, self).__init__(meta)
-        self.model = getattr(meta, 'model', None)
-        self.read_only_fields = getattr(meta, 'read_only_fields', ())
-        self.non_native_fields = getattr(meta, 'non_native_fields', ())
+def gen_query_otblock(data):
+    return UnavailableTimeOneTime(**data)
 
-
-class ExtensibleModelSerializer(serializers.ModelSerializer):
-
-    _options_class = ExtensibleModelSerializerOptions
-
-    def restore_object(self, attrs, instance=None):
-        """
-        Deserialize a dictionary of attributes into an object instance.
-        You should override this method to control how deserialized objects
-        are instantiated.
-        """
-        for field in self.opts.non_native_fields:
-            attrs.pop(field)
-
-        return super(ExtensibleModelSerializer, self).restore_object(attrs, instance)
-
-    def to_native(self, obj):
-        """
-        Serialize objects -> primitives.
-        """
-        ret = self._dict_class()
-        ret.fields = {}
-
-        for field_name, field in self.fields.items():
-            # --- BEGIN EDIT --- #
-            if field_name in self.opts.non_native_fields:
-                continue
-            # --- END --- #
-            field.initialize(parent=self, field_name=field_name)
-            key = self.get_field_key(field_name)
-            value = field.field_to_native(obj, field_name)
-            ret[key] = value
-            ret.fields[key] = field
-        return ret
+def split_at_reg(rblock, otblock):
+    blocks = []
+    s, f = otblock['start'], otblock['stop']
+    if rblock:
+        otblock['stop'] = rblock[0]['start']
+        if not otblock['stop'] == otblock['start']:
+            blocks.append(gen_query_otblock(otblock))
+        for i in range(1, len(rblock)):
+            otblock['start'] = rblock[i - 1]['stop']
+            otblock['stop'] = rblock[i]['start']
+            blocks.append(gen_query_otblock(otblock))
+        otblock['start'] = rblock[-1]['stop']
+        otblock['stop'] = f
+        if not otblock['stop'] == otblock['start']:
+            blocks.append(gen_query_otblock(otblock))
+        return blocks
+    else:
+        return [gen_query_otblock(otblock), ]

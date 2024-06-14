@@ -30,7 +30,6 @@ class StudentTeacherRelation(models.Model):
     favorite_student = models.BooleanField(default=False)
 
 class Student(models.Model):
-    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     course = models.ManyToManyField(to=Course, through=CourseRegistration, related_name="student")
     school = models.ManyToManyField(to=School, related_name="student")
     teacher = models.ManyToManyField(to=Teacher, through=StudentTeacherRelation, related_name="student")

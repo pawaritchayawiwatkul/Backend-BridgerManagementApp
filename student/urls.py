@@ -20,6 +20,7 @@ courseATview = views.CourseViewset.as_view({
 lessonView = views.LessonViewset.as_view({
     'post': 'create'
 })
+
 lessonDayView = views.LessonViewset.as_view({
     'get': 'day',
 })

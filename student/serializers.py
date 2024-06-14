@@ -2,7 +2,7 @@ from rest_framework import serializers
 from student.models import Lesson, CourseRegistration, Student, StudentTeacherRelation
 from teacher.models import Teacher
 from school.models import Course
-
+    
 class ListTeacherSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="teacher.user.first_name")
     uuid = serializers.CharField(source="teacher.user.uuid")

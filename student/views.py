@@ -98,17 +98,11 @@ class CourseViewset(ViewSet):
         unavailable_regular = UnavailableTimeRegular.objects.filter(
             teacher=regis.teacher,
             day=str(day_number)
-        ).annotate(
-        ).values_list("time", "duration")
+        ).values("start", "stop")
         unavailable_times = UnavailableTimeOneTime.objects.filter(
             teacher=regis.teacher, 
-            datetime__date=date
-        ).annotate(time=Func(
-            F('datetime'),
-            Value('HH:MM:SS'),
-            function='to_char',
-            output_field=CharField()
-        )).values_list("time", "duration")
+            date=date
+        ).values("start", "stop")
         return Response(data={
             "booked_lessons": {
                 "time": list(booked_lessons),

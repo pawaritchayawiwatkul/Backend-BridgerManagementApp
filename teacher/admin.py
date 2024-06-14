@@ -12,12 +12,12 @@ class TeacherAdmin(admin.ModelAdmin):
 
 @admin.register(UnavailableTimeOneTime)
 class UnavailableTimeOneTimeAdmin(admin.ModelAdmin):
-    list_display = ('datetime', 'duration', 'teacher')
+    list_display = ('start', 'stop', 'teacher')
     search_fields = ('teacher__user__first_name',)
-    list_filter = ('datetime',)
+    list_filter = ('start',)
 
 @admin.register(UnavailableTimeRegular)
 class UnavailableTimeRegularAdmin(admin.ModelAdmin):
-    list_display = ('day', 'time', 'duration', 'teacher')
+    list_display = ('day', 'start', 'stop', 'teacher')
     search_fields = ('teacher__user__first_name',)
     list_filter = ('day',)
