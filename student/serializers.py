@@ -6,11 +6,13 @@ from school.models import Course
 class ListTeacherSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="teacher.user.first_name")
     uuid = serializers.CharField(source="teacher.user.uuid")
+    email = serializers.CharField(source="teacher.user.email")
+    phone_number = serializers.CharField(source="teacher.user.phone_number")
     school_name = serializers.CharField(source="teacher.school.name")
 
     class Meta:
         model = StudentTeacherRelation
-        fields = ("name", "school_name", "uuid", "favorite_teacher")
+        fields = ("name", "school_name", "email", "phone_number", "uuid", "favorite_teacher")
 
 class ListCourseRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="course.name")
@@ -34,7 +36,7 @@ class ListLessonSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "teacher_name", "course_name")
+        fields = ("booked_datetime", "duration", "teacher_name", "course_name", "status", "code")
 
 class CourseRegistrationSerializer(serializers.Serializer):
     course_id = serializers.CharField()
@@ -110,7 +112,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = ("first_name", "last_name", "phone_number", "email", "uuid")
-
+    
     def update(self, instance, validated_data):
         user_data = validated_data.get('user')
         if user_data:
@@ -122,3 +124,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             instance.user.save()
             return instance
         
+class UnavailableTimeSerializer(serializers.Serializer):
+    start = serializers.TimeField()
+    stop = serializers.TimeField()
+
+    class Meta:
+        fields = ("start", "stop")

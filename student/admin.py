@@ -8,7 +8,7 @@ admin.site.register(Student)
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ('registration', 'booked_datetime', 'attended', 'notes')
+    list_display = ('registration', 'booked_datetime', 'status', 'notes')
     search_fields = ( 'registration',)
     list_filter = ('registration__student', 'registration__lesson',)
 

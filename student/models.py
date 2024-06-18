@@ -3,8 +3,7 @@ from school.models import Course, School
 from core.models import User
 from teacher.models import Teacher
 from uuid import uuid4
-import secrets
-
+from utils import generate_unique_code
 # Create your models here.
 
 class CourseRegistration(models.Model):
@@ -39,8 +38,30 @@ class Student(models.Model):
         return self.user.__str__()
 
 class Lesson(models.Model):
+    STATUS_CHOICES = [
+        ('PEN', 'Pending'),
+        ('CON', 'Confirmed'),
+        ('COM', 'Completed'),
+        ('CAN', 'Canceled'),
+        ('FIN', 'Finished'),
+        ('MIS', 'Missed'),
+    ]
+
     notes = models.CharField(max_length=300, blank=True)
-    confirmed = models.BooleanField(default=False)
     booked_datetime = models.DateTimeField()
-    attended = models.BooleanField(default=False)
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE)
+    code = models.CharField(max_length=12, unique=True)
+    status = models.CharField(choices=STATUS_CHOICES, max_length=3, default="PEN")
+
+    def _generate_unique_code(self):
+        """Generate a unique code and ensure it's not already in the database."""
+        code = generate_unique_code(12)
+        while Lesson.objects.filter(code=code).exists():
+            code = generate_unique_code(12)
+        return code
+    
+    def save(self, *args, **kwargs):
+        if self.code is None:
+            self.code = self._generate_unique_code()
+        super(Lesson, self).save(*args, **kwargs)
+        

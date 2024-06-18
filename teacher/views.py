@@ -159,9 +159,9 @@ class LessonViewset(ViewSet):
                 "booked_datetime__date__range": [start_of_range, end_of_range]
             }
             if request.GET.get("confirmed", "false") == "false":
-                filters['confirmed'] = False
+                filters['status'] = "PEN"
             else:
-                filters['confirmed'] = True
+                filters['status'] = "CON"
             try:
                 lessons = Lesson.objects.filter(**filters)
             except ValidationError as e:
@@ -186,7 +186,7 @@ class LessonViewset(ViewSet):
             seven_days_ago = today_date - timedelta(days=7)
             stop_day = today_date + timedelta(days=1)
             completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
+                status="COM",  # Assuming 'attended' field indicates completion
                 booked_datetime__gte=seven_days_ago,
                 booked_datetime__lt=stop_day,
                 registration__teacher__user_id=request.user.id
@@ -204,7 +204,7 @@ class LessonViewset(ViewSet):
             start_date = today_date - timedelta(weeks=6)
             end_date = start_of_week + timedelta(weeks=1)
             completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
+                status="COM",  # Assuming 'attended' field indicates completion
                 booked_datetime__gte=start_date,
                 booked_datetime__lte=end_date,
                 registration__teacher__user_id=request.user.id
@@ -222,7 +222,7 @@ class LessonViewset(ViewSet):
             start_date = today_date - relativedelta(months=5)
             end_date = today_date + relativedelta(months=1)
             completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
+                status="COM",  # Assuming 'attended' field indicates completion
                 booked_datetime__gte=start_date,
                 booked_datetime__lt=end_date,
                 registration__teacher__user_id=request.user.id

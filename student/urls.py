@@ -13,6 +13,9 @@ courseDetailView = views.CourseViewset.as_view({
     'get': 'retrieve',
 })
 
+courseFavoriteView = views.CourseViewset.as_view({
+    'put': 'favorite'
+})
 courseATview = views.CourseViewset.as_view({
     'get': 'get_available_time',
 })
@@ -33,12 +36,19 @@ lessonRecentView = views.LessonViewset.as_view({
     'get': 'recent',
 })
 
+lessonCancelView = views.LessonViewset.as_view({
+    'put': 'cancel',
+})
 lessonRangeView = views.LessonViewset.as_view({
     'get': 'range',
 })
 
 teacherListView = views.TeacherViewset.as_view({
     'get': 'list',
+})
+
+teacherFavView = views.TeacherViewset.as_view({
+    'put': 'favorite',
 })
 
 profileView = views.ProfileViewSet.as_view({
@@ -58,12 +68,16 @@ urlpatterns = format_suffix_patterns([
     path('course/', courseView, name='course'),
     path('course/<slug:code>/', courseDetailView, name='course-detail'),
     path('course/<slug:code>/availabletime', courseATview, name='course-available-time'),
-    
+    path('course/<slug:code>/favorite', courseFavoriteView, name='course-fav'),
+
     path('lesson/', lessonView, name='lesson'),
     path('lesson/range', lessonRangeView, name='lesson-week'),
     path('lesson/day', lessonDayView, name='lesson-day'),
     path('lesson/recent', lessonRecentView, name='lesson-day'),
-    path('lesson/progress/<slug:progress_type>', lessonProgressView, name='course-detail'),
+    path('lesson/progress', lessonProgressView, name='course-detail'),
+    path('lesson/<slug:code>/cancel', lessonCancelView, name='course-detail'),
 
     path('teacher/', teacherListView, name='lesson-day'),
+    path('teacher/<slug:code>/favorite', teacherFavView, name='lesson-fav'),
+
 ])

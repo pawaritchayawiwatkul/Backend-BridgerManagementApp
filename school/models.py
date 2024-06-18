@@ -1,15 +1,18 @@
 from django.db import models
 import secrets
 import uuid
+import datetime
 # Create your models here.
 
 class School(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=300)
-    # registered_date = models.DateField(auto_now_add=True)
+    registered_date = models.DateField(auto_now_add=True)
     # phone_number = models.IntegerField()
     # email = models.EmailField()
-
+    start = models.TimeField(default=datetime.time(8, 0))
+    stop = models.TimeField(default=datetime.time(15, 0))
+    
     def __str__(self) -> str:
         return self.name
     

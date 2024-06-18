@@ -1,5 +1,15 @@
 from rest_framework import serializers
 from teacher.models import UnavailableTimeOneTime
+import random
+import string
+
+def generate_unique_code(length=8):
+    """Generate a unique random code."""
+    characters = string.ascii_letters + string.digits
+    code = ''.join(random.choice(characters) for _ in range(length))
+    return code
+
+
 def merge_schedule(validated_data, unavailables):
     new_start = validated_data['start']
     new_stop = validated_data['stop']

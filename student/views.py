@@ -9,11 +9,11 @@ from student.models import CourseRegistration, Student, Course, Lesson, StudentT
 from teacher.models import UnavailableTimeOneTime, UnavailableTimeRegular, Teacher
 from django.utils import timezone
 from datetime import timedelta, datetime
-from django.db.models import Count, F, Func, Value, CharField
+from django.db.models import Count, F, Func, Value, CharField, Prefetch
 from datetime import datetime
 from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from django.core.exceptions import ValidationError
-from student.serializers import ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
+from student.serializers import UnavailableTimeSerializer, ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
 from dateutil.relativedelta import relativedelta
 
@@ -43,18 +43,40 @@ class ProfileViewSet(ViewSet):
         if not student.teacher.filter(id=teacher.id).exists():
             student.teacher.add(teacher)
             student.school.add(teacher.school_id)        
-        return Response(status=200)    
+        return Response(status=200)
     
 @permission_classes([IsAuthenticated])
 class TeacherViewset(ViewSet):
     def list(self, request):
         user = request.user
-        teacher = StudentTeacherRelation.objects.select_related("teacher__school", "teacher__user").filter(student__user_id=user.id)
+        teacher = StudentTeacherRelation.objects.select_related("teacher__school", "teacher__user").order_by("favorite_teacher").filter(student__user_id=user.id)
         ser = ListTeacherSerializer(instance=teacher, many=True)
         return Response(ser.data)
     
+    def favorite(self, request, code):
+        fav = request.GET.get("fav", None)
+        if fav in ["0", "1"]:
+            fav = bool(int(fav))
+            student = get_object_or_404(StudentTeacherRelation, teacher__user__uuid=code, student__user_id=request.user.id)
+            student.favorite_teacher = bool(int(fav))
+            student.save()
+            return Response({"favorite": fav}, status=200)
+        else:
+            return Response({"error_messages": ["Invalid Request"]}, status=400)
+    
 @permission_classes([IsAuthenticated])
 class CourseViewset(ViewSet):
+    def favorite(self, request, code):
+        fav = request.GET.get("fav", None)
+        if fav in ["0", "1"]:
+            fav = bool(int(fav))
+            regis = CourseRegistration.objects.get(uuid=code, student__user_id=request.user.id)
+            regis.favorite = bool(int(fav))
+            regis.save()
+            return Response({"favorite": fav}, status=200)
+        else:
+            return Response({"error_messages": ["Invalid Request"]}, status=400)
+    
     def list(self, request):
         teacher_uuid = request.GET.get("teacher_uuid")
         if not teacher_uuid:
@@ -85,9 +107,25 @@ class CourseViewset(ViewSet):
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
         day_number = date.weekday() + 1
-        regis = CourseRegistration.objects.select_related('teacher', 'course').get(uuid=code)
+        regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
+            Prefetch(
+                "teacher__unavailable_reg",
+                queryset=UnavailableTimeRegular.objects.filter(
+                    day=str(day_number)
+                ).only("start", "stop"),
+                to_attr="regular"
+            ),
+            Prefetch(
+                "teacher__unavailable_once",
+                queryset=UnavailableTimeOneTime.objects.filter(
+                    date=date
+                ).only("start", "stop"),
+                to_attr="once"
+            ),
+        ).get(uuid=code)
         booked_lessons = Lesson.objects.filter(
-            registration=regis,
+            status="CON",
+            registration__teacher=regis.teacher,
             booked_datetime__date=date
         ).annotate(time=Func(
             F('booked_datetime'),
@@ -95,20 +133,17 @@ class CourseViewset(ViewSet):
             function='to_char',
             output_field=CharField()
         )).values_list("time", flat=True)
-        unavailable_regular = UnavailableTimeRegular.objects.filter(
-            teacher=regis.teacher,
-            day=str(day_number)
-        ).values("start", "stop")
-        unavailable_times = UnavailableTimeOneTime.objects.filter(
-            teacher=regis.teacher, 
-            date=date
-        ).values("start", "stop")
+
+        unavailable_regular = UnavailableTimeSerializer(regis.teacher.regular, many=True).data
+        unavailable_times = UnavailableTimeSerializer(regis.teacher.once, many=True).data
         return Response(data={
             "booked_lessons": {
                 "time": list(booked_lessons),
                 "duration": regis.course.duration
             },
-            "unavailable": list(unavailable_regular) + list(unavailable_times)
+            "unavailable": list(unavailable_regular) + list(unavailable_times),
+            "start": regis.teacher.school.start,
+            "stop": regis.teacher.school.stop,
         })
     
     def retrieve(self, request, code):
@@ -140,11 +175,10 @@ class LessonViewset(ViewSet):
                 "registration__student__user_id": request.user.id,
                 "booked_datetime__date__range": [start_of_range, end_of_range]
             }
-            print(request.GET.get("confirmed"))
             if request.GET.get("confirmed", "false") == "false":
-                filters['confirmed'] = False
+                filters['status'] = "PEN"
             else:
-                filters['confirmed'] = True
+                filters['status'] = "CON"
             try:
                 lessons = Lesson.objects.filter(**filters)
             except ValidationError as e:
@@ -154,7 +188,7 @@ class LessonViewset(ViewSet):
         else:
             return Response({"error_message": ["Start or end is empty", ]}, status=400)
 
-    def progress(self, request, progress_type):
+    def progress(self, request):
         today_date = request.GET.get("date_of_today", "")
         if not today_date:
             return Response({"error_message": ["Please enter today's date", ]}, status=400)
@@ -162,44 +196,17 @@ class LessonViewset(ViewSet):
             today_date = datetime.strptime(today_date, "%Y-%m-%d")
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
-        if progress_type == "daily":
-            seven_days_ago = today_date - timedelta(days=7)
-            stop_day = today_date + timedelta(days=1)
-            completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=seven_days_ago,
-                booked_datetime__lt=stop_day,
-                registration__student__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                day_number=Extract(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
-            ).values('day_number').annotate(completed_lessons_count=Count('id'))
-            return Response(list(completed_lessons))
-        elif progress_type == "weekly":
-            start_of_week = today_date - timedelta(days=today_date.weekday())  # Assuming Monday is the start of the week
-            start_date = today_date - timedelta(weeks=6)
-            end_date = start_of_week + timedelta(weeks=1)
-            completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=start_date,
-                booked_datetime__lte=end_date,
-                registration__student__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                week_number=ExtractWeek('booked_datetime')  # Extract the week number from the attended_date
-            ).values('week_number').annotate(completed_lessons_count=Count('id'))
-            return Response(list(completed_lessons))
-        elif progress_type == "monthly":
-            today_date = today_date.replace(day=1)
-            start_date = today_date - relativedelta(months=5)
-            end_date = today_date + relativedelta(months=1)
-            completed_lessons = Lesson.objects.filter(
-                attended=True,  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=start_date,
-                booked_datetime__lt=end_date,
-                registration__student__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                month_number=ExtractMonth(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
-            ).values('month_number').annotate(completed_lessons_count=Count('id'))
-            return Response(list(completed_lessons))
+        seven_days_ago = today_date - timedelta(days=7)
+        stop_day = today_date + timedelta(days=1)
+        completed_lessons = Lesson.objects.filter(
+            status="COM",  # Assuming 'attended' field indicates completion
+            booked_datetime__gte=seven_days_ago,
+            booked_datetime__lt=stop_day,
+            registration__student__user_id=request.user.id
+        ).order_by('booked_datetime').annotate(
+            day_number=Extract(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
+        ).values('day_number').annotate(completed_lessons_count=Count('id'))
+        return Response(list(completed_lessons))
     
     def recent(self, request):
         filters = {
@@ -234,4 +241,22 @@ class LessonViewset(ViewSet):
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)
-        
+    
+    def cancel(self, request, code):
+        # Fetch the lesson object ensuring it belongs to the requesting user
+        try:
+            lesson = Lesson.objects.select_related("registration").get(code=code, registration__student__user__id=request.user.id)
+        except Lesson.DoesNotExist:
+            return Response({'success': "No Course Registration matches the given query."}, status=200)
+        # Calculate the difference between now and the lesson's booked datetime
+        now = timezone.now()
+        time_difference = lesson.booked_datetime - now
+
+        # Ensure the cancellation is at least 24 hours before the class
+        if time_difference.total_seconds() >= 24 * 60 * 60:
+            lesson.registration.used_lessons -= 1
+            lesson.registration.save()
+        lesson.status = 'CAN'
+        lesson.save()
+
+        return Response({'success': 'Lesson canceled successfully.'}, status=200)
