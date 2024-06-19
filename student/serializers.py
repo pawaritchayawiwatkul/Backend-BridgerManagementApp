@@ -27,7 +27,7 @@ class ListLessonDateTimeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "attended")
+        fields = ("booked_datetime", "duration", "status")
 
 class ListLessonSerializer(serializers.ModelSerializer):
     duration = serializers.IntegerField(source="registration.course.duration")
