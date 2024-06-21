@@ -52,7 +52,7 @@ class Lesson(models.Model):
     notes = models.CharField(max_length=300, blank=True)
     booked_datetime = models.DateTimeField()
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE)
-    code = models.CharField(max_length=30, unique=True)
+    code = models.CharField(max_length=12, unique=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=3, default="PEN")
 
     def generate_unique_code(self, length=8):
