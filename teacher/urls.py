@@ -27,8 +27,12 @@ lessonDayView = views.LessonViewset.as_view({
     'get': 'day',
 })
 
-lessonRangeView = views.LessonViewset.as_view({
-    'get': 'range',
+lessonWeekView = views.LessonViewset.as_view({
+    'get': 'week',
+})
+
+LessonCancelView = views.LessonViewset.as_view({
+    'put': 'cancel',
 })
 
 studentListView = views.StudentViewset.as_view({
@@ -60,8 +64,9 @@ urlpatterns = format_suffix_patterns([
     path('registration/<slug:code>', registrationDetailView, name='course'),
 
     path('lesson/day', lessonDayView, name='lesson-day'),
-    path('lesson/range', lessonRangeView, name='lesson-week'),
-    path('lesson/progress/<slug:progress_type>', lessonProgressView, name='lesson-progress'),
+    path('lesson/week', lessonWeekView, name='lesson-week'),
+    path('lesson/progress', lessonProgressView, name='lesson-progress'),
+    path('lesson/<slug:code>/cancel', LessonCancelView, name='lesson-progress'),
 
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),

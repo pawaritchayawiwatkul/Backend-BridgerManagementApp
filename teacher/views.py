@@ -17,6 +17,8 @@ from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 from utils import merge_schedule, split_at_reg
+from django.utils import timezone
+
 @permission_classes([IsAuthenticated])
 class UnavailableTimeViewset(ViewSet):
     def one_time(self, request):
@@ -150,31 +152,26 @@ class RegistrationViewset(ViewSet):
 
 @permission_classes([IsAuthenticated])
 class LessonViewset(ViewSet):
-    def range(self, request):
-        start_of_range = request.GET.get("start")
-        end_of_range = request.GET.get("end")
-        if start_of_range and end_of_range:
-            filters = {
-                "registration__teacher__user_id": request.user.id,
-                "booked_datetime__date__range": [start_of_range, end_of_range]
-            }
-            if request.GET.get("confirmed", "false") == "false":
-                filters['status'] = "PEN"
-            else:
-                filters['status'] = "CON"
-            try:
-                lessons = Lesson.objects.filter(**filters)
-            except ValidationError as e:
-                return Response({"error_message": e}, status=400)
-            ser = ListLessonSerializer(instance=lessons, many=True)
-            return Response(ser.data, status=200)
-        else:
-            return Response({"error_message": ["Start or end is empty", ]}, status=400)
+    def cancel(self, request, code):
+        # Fetch the lesson object ensuring it belongs to the requesting user
+        try:
+            lesson = Lesson.objects.select_related("registration").get(code=code, registration__teacher__user__id=request.user.id)
+        except Lesson.DoesNotExist:
+            return Response({'failed': "No Lesson matches the given query."}, status=200)
+        # Calculate the difference between now and the lesson's booked datetime
+        now = timezone.now()
+        time_difference = lesson.booked_datetime - now
 
-    def confirm(self, request):
-        return Response()
+        # Ensure the cancellation is at least 24 hours before the class
+        if time_difference.total_seconds() >= 24 * 60 * 60:
+            lesson.registration.used_lessons -= 1
+            lesson.registration.save()
+        lesson.status = 'CAN'
+        lesson.save()
+
+        return Response({'success': 'Lesson canceled successfully.'}, status=200)
     
-    def progress(self, request, progress_type):
+    def week(self, request):
         today_date = request.GET.get("date_of_today", "")
         if not today_date:
             return Response({"error_message": ["Please enter today's date", ]}, status=400)
@@ -182,60 +179,54 @@ class LessonViewset(ViewSet):
             today_date = datetime.strptime(today_date, "%Y-%m-%d")
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
-        if progress_type == "daily":
-            seven_days_ago = today_date - timedelta(days=7)
-            stop_day = today_date + timedelta(days=1)
-            completed_lessons = Lesson.objects.filter(
-                status="COM",  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=seven_days_ago,
-                booked_datetime__lt=stop_day,
-                registration__teacher__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                day_number=Extract(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
-            ).values('day_number')
+        start_day = today_date - timedelta(days=today_date.weekday())
+        stop_day = start_day + timedelta(days=7)
+        filters = {
+            "registration__teacher__user_id": request.user.id,
+            "booked_datetime__gte": start_day,
+            "booked_datetime__lt": stop_day,
+        }
+        if request.GET.get("confirmed", "false") == "false":
+            filters['status'] = "PEN"
+        else:
+            filters['status'] = "CON"
+        try:
+            lessons = Lesson.objects.filter(**filters)
+        except ValidationError as e:
+            return Response({"error_message": e}, status=400)
+        ser = ListLessonSerializer(instance=lessons, many=True)
+        return Response(ser.data, status=200)
 
-            count_dict = defaultdict(int)
-            for entry in completed_lessons:
-                count_dict[entry["day_number"]] += 1
+    def confirm(self, request):
+        return Response()
+    
+    def progress(self, request):
+        today_date = request.GET.get("date_of_today", "")
+        if not today_date:
+            return Response({"error_message": ["Please enter today's date", ]}, status=400)
+        try:
+            today_date = datetime.strptime(today_date, "%Y-%m-%d")
+        except ValueError:
+            return Response({"error_message": ["Invalid Date Format"]}, status=400)
+        start_day = today_date - timedelta(days=today_date.weekday())
+        stop_day = start_day + timedelta(days=7)
+        print(start_day)
+        print(stop_day)
+        completed_lessons = Lesson.objects.filter(
+            status="COM",  # Assuming 'attended' field indicates completion
+            booked_datetime__gte=start_day,
+            booked_datetime__lt=stop_day,
+            registration__teacher__user_id=request.user.id
+        ).order_by('booked_datetime').annotate(
+            day_number=Extract(F('booked_datetime'), 'dow')  # Extract the week number from the attended_date
+        ).values('day_number')
 
-            return Response(count_dict)
-        elif progress_type == "weekly":
-            start_of_week = today_date - timedelta(days=today_date.weekday())  # Assuming Monday is the start of the week
-            start_date = today_date - timedelta(weeks=6)
-            end_date = start_of_week + timedelta(weeks=1)
-            completed_lessons = Lesson.objects.filter(
-                status="COM",  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=start_date,
-                booked_datetime__lte=end_date,
-                registration__teacher__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                week_number=ExtractWeek('booked_datetime')  # Extract the week number from the attended_date
-            ).values('week_number')
-            
-            count_dict = defaultdict(int)
-            for entry in completed_lessons:
-                count_dict[entry["week_number"]] += 1
+        count_dict = defaultdict(int)
+        for entry in completed_lessons:
+            count_dict[entry["day_number"]] += 1
 
-            return Response(count_dict)
-        elif progress_type == "monthly":
-            today_date = today_date.replace(day=1)
-            start_date = today_date - relativedelta(months=5)
-            end_date = today_date + relativedelta(months=1)
-            completed_lessons = Lesson.objects.filter(
-                status="COM",  # Assuming 'attended' field indicates completion
-                booked_datetime__gte=start_date,
-                booked_datetime__lt=end_date,
-                registration__teacher__user_id=request.user.id
-            ).order_by('booked_datetime').annotate(
-                month_number=ExtractMonth(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
-            ).values('month_number')
+        return Response(count_dict)
 
-            count_dict = defaultdict(int)
-            for entry in completed_lessons:
-                count_dict[entry["month_number"]] += 1
-
-            return Response(count_dict)
-        return Response("invalid choice", status=400)
     
     def recent(self, request):
         filters = {

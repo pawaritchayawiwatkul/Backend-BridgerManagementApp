@@ -195,4 +195,4 @@ class ListLessonSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "student_name", "course_name")
+        fields = ("booked_datetime", "duration", "student_name", "course_name", "code")
