@@ -4,6 +4,8 @@ from core.models import User
 from teacher.models import Teacher
 from uuid import uuid4
 from utils import generate_unique_code
+import random
+import string
 # Create your models here.
 
 class CourseRegistration(models.Model):
@@ -50,18 +52,24 @@ class Lesson(models.Model):
     notes = models.CharField(max_length=300, blank=True)
     booked_datetime = models.DateTimeField()
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE)
-    code = models.CharField(max_length=12, unique=True)
+    code = models.CharField(max_length=30, unique=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=3, default="PEN")
 
-    def _generate_unique_code(self):
+    def generate_unique_code(self, length=8):
+        """Generate a unique random code."""
+        characters = string.ascii_letters + string.digits
+        code = ''.join(random.choice(characters) for _ in range(length))
+        return code
+    
+    def _generate_unique_code(self, length):
         """Generate a unique code and ensure it's not already in the database."""
-        code = generate_unique_code(12)
+        code = self.generate_unique_code(length)
         while Lesson.objects.filter(code=code).exists():
-            code = generate_unique_code(12)
+            code = self.generate_unique_code(length)
         return code
     
     def save(self, *args, **kwargs):
-        if self.code is None:
-            self.code = self._generate_unique_code()
+        if self.code is None or self.code == "":
+            self.code = self._generate_unique_code(12)
         super(Lesson, self).save(*args, **kwargs)
         
