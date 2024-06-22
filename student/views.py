@@ -207,7 +207,7 @@ class LessonViewset(ViewSet):
         ).order_by('booked_datetime').annotate(
             day_number=Extract(F('booked_datetime'), 'dow')  # Extract the week number from the attended_date
         ).values('day_number')
-
+        
         count_dict = defaultdict(int)
         for entry in completed_lessons:
             count_dict[entry["day_number"]] += 1
