@@ -16,6 +16,7 @@ from django.core.exceptions import ValidationError
 from student.serializers import UnavailableTimeSerializer, ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
 from dateutil.relativedelta import relativedelta
+from collections import defaultdict
 
 @permission_classes([IsAuthenticated])
 class ProfileViewSet(ViewSet):
@@ -196,17 +197,22 @@ class LessonViewset(ViewSet):
             today_date = datetime.strptime(today_date, "%Y-%m-%d")
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
-        seven_days_ago = today_date - timedelta(days=7)
-        stop_day = today_date + timedelta(days=1)
+        start_day = today_date - timedelta(days=today_date.weekday())
+        stop_day = start_day + timedelta(days=7)
         completed_lessons = Lesson.objects.filter(
             status="COM",  # Assuming 'attended' field indicates completion
-            booked_datetime__gte=seven_days_ago,
+            booked_datetime__gte=start_day,
             booked_datetime__lt=stop_day,
             registration__student__user_id=request.user.id
         ).order_by('booked_datetime').annotate(
-            day_number=Extract(F('booked_datetime'), 'doy')  # Extract the week number from the attended_date
-        ).values('day_number').annotate(completed_lessons_count=Count('id'))
-        return Response(list(completed_lessons))
+            day_number=Extract(F('booked_datetime'), 'dow')  # Extract the week number from the attended_date
+        ).values('day_number')
+
+        count_dict = defaultdict(int)
+        for entry in completed_lessons:
+            count_dict[entry["day_number"]] += 1
+
+        return Response(count_dict)
     
     def recent(self, request):
         filters = {

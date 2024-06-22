@@ -19,6 +19,10 @@ courseView = views.CourseViewset.as_view({
     'post': 'create'
 })
 
+courseDetailView = views.CourseViewset.as_view({
+    'get': 'retrieve',
+})
+
 lessonProgressView = views.LessonViewset.as_view({
     "get": "progress"
 })
@@ -34,6 +38,15 @@ lessonWeekView = views.LessonViewset.as_view({
 LessonCancelView = views.LessonViewset.as_view({
     'put': 'cancel',
 })
+
+LessonConfirmView = views.LessonViewset.as_view({
+    'put': 'confirm',
+})
+
+lessonRecentView = views.LessonViewset.as_view({
+    'get': 'recent',
+})
+
 
 studentListView = views.StudentViewset.as_view({
     'get': 'list'
@@ -59,6 +72,7 @@ urlpatterns = format_suffix_patterns([
     path('profile/', profileView, name='profile'),
     path('profile/add/<slug:student_uuid>', profileAddView, name='profile-add'),
     path('course/', courseView, name='course'),
+    path('course/<slug:code>', courseDetailView, name='course'),
 
     path('registration/', registrationView, name='course'),
     path('registration/<slug:code>', registrationDetailView, name='course'),
@@ -66,7 +80,9 @@ urlpatterns = format_suffix_patterns([
     path('lesson/day', lessonDayView, name='lesson-day'),
     path('lesson/week', lessonWeekView, name='lesson-week'),
     path('lesson/progress', lessonProgressView, name='lesson-progress'),
+    path('lesson/recent', lessonRecentView, name='lesson-recent'),
     path('lesson/<slug:code>/cancel', LessonCancelView, name='lesson-progress'),
+    path('lesson/<slug:code>/confirm', LessonConfirmView, name='lesson-progress'),
 
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),

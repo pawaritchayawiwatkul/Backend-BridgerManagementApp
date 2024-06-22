@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from teacher.models import Teacher, TeacherCourses
-from teacher.serializers import RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, CourseRegistrationSerializer, ListLessonSerializer
+from teacher.serializers import TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, CourseRegistrationSerializer, ListLessonSerializer
 from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson
 from django.core.exceptions import ValidationError
 from rest_framework.views import Response
@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from datetime import timedelta, datetime
-from django.db.models import Count, F
+from django.db.models import Count, F, Q, Prefetch
 from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
@@ -68,6 +68,18 @@ class CourseViewset(ViewSet):
         else:
             return Response(ser.errors, status=400)
     
+    def retrieve(self, request, code):
+        try:
+            tcourse = TeacherCourses.objects.select_related("course").prefetch_related(Prefetch('course__registration')).annotate(
+                number_of_registered=Count('course__registration', distinct=True),
+                number_of_student=Count('course__registration__student', distinct=True),
+                number_of_comlesson=Count('course__registration__lesson', filter=Q(course__registration__lesson__status='COM'), distinct=True)  # Count completed lessons related to course registrations
+            ).get(teacher__user_id=request.user.id, course__uuid=code)
+        except TeacherCourses.DoesNotExist:
+            return Response({"error_messages": ["Invalid UUID"]}, status=400)
+        ser = TeacherCourseDetailSerializer(instance=tcourse)
+        return Response(ser.data)
+
 @permission_classes([IsAuthenticated])
 class ProfileViewSet(ViewSet):
     def retrieve(self, request):
@@ -103,8 +115,7 @@ class ProfileViewSet(ViewSet):
 @permission_classes([IsAuthenticated])
 class StudentViewset(ViewSet):
     def list(self, request):
-        user = request.user
-        students = StudentTeacherRelation.objects.select_related("student__user").filter(teacher__user_id=user.id)
+        students = StudentTeacherRelation.objects.select_related("student__user").filter(teacher__user_id=request.user.id)
         ser = ListStudentSerializer(instance=students, many=True)
         return Response(ser.data)
     
@@ -153,16 +164,14 @@ class RegistrationViewset(ViewSet):
 @permission_classes([IsAuthenticated])
 class LessonViewset(ViewSet):
     def cancel(self, request, code):
-        # Fetch the lesson object ensuring it belongs to the requesting user
         try:
             lesson = Lesson.objects.select_related("registration").get(code=code, registration__teacher__user__id=request.user.id)
         except Lesson.DoesNotExist:
             return Response({'failed': "No Lesson matches the given query."}, status=200)
-        # Calculate the difference between now and the lesson's booked datetime
+
         now = timezone.now()
         time_difference = lesson.booked_datetime - now
 
-        # Ensure the cancellation is at least 24 hours before the class
         if time_difference.total_seconds() >= 24 * 60 * 60:
             lesson.registration.used_lessons -= 1
             lesson.registration.save()
@@ -170,6 +179,15 @@ class LessonViewset(ViewSet):
         lesson.save()
 
         return Response({'success': 'Lesson canceled successfully.'}, status=200)
+
+    def confirm(self, request, code):
+        try:
+            lesson = Lesson.objects.select_related("registration").get(code=code, registration__teacher__user__id=request.user.id, status="PEN")
+        except Lesson.DoesNotExist:
+            return Response({'failed': "No Lesson matches the given query."}, status=200)
+        lesson.status = 'CON'
+        lesson.save()
+        return Response({'success': 'Lesson confirmed successfully.'}, status=200)
     
     def week(self, request):
         today_date = request.GET.get("date_of_today", "")
@@ -196,9 +214,6 @@ class LessonViewset(ViewSet):
             return Response({"error_message": e}, status=400)
         ser = ListLessonSerializer(instance=lessons, many=True)
         return Response(ser.data, status=200)
-
-    def confirm(self, request):
-        return Response()
     
     def progress(self, request):
         today_date = request.GET.get("date_of_today", "")
@@ -210,8 +225,6 @@ class LessonViewset(ViewSet):
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
         start_day = today_date - timedelta(days=today_date.weekday())
         stop_day = start_day + timedelta(days=7)
-        print(start_day)
-        print(stop_day)
         completed_lessons = Lesson.objects.filter(
             status="COM",  # Assuming 'attended' field indicates completion
             booked_datetime__gte=start_day,
@@ -232,11 +245,10 @@ class LessonViewset(ViewSet):
         filters = {
             "registration__teacher__user_id": request.user.id
         }
-        student_uuid = request.GET.get("student_uuid")
-        if student_uuid:
+        registration_uuid = request.GET.get("registration_uuid")
+        if registration_uuid:
             # Assuming you have a Teacher model with a UUID field
-            student = get_object_or_404(Student, user__uuid=student_uuid)
-            filters['registration__student_id'] = student.id
+            filters['registration__uuid'] = registration_uuid
         lessons = Lesson.objects.filter(**filters)
         ser = ListLessonDateTimeSerializer(instance=lessons, many=True)
         return Response(ser.data, status=200)

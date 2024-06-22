@@ -62,14 +62,48 @@ class OnetimeUnavailableSerializer(serializers.ModelSerializer):
 class TeacherCourseListSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="course.name")
     description = serializers.CharField(source="course.description")
+    uuid = serializers.CharField(source="course.uuid")
+
+
+    class Meta:
+        model = TeacherCourses
+        fields = ("name", "description", "favorite", "uuid")
+
+class TeacherCourseDetailSerializer(serializers.ModelSerializer):
     no_exp = serializers.BooleanField(source="course.no_exp")
     exp_range = serializers.IntegerField(source="course.exp_range")
     duration = serializers.IntegerField(source="course.duration")
     number_of_lessons = serializers.IntegerField(source="course.number_of_lessons")
+    number_of_registered = serializers.IntegerField()
+    number_of_student = serializers.IntegerField()
+    number_of_comlesson = serializers.IntegerField()
+    students = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherCourses
-        fields = ("name", "description", "no_exp", "exp_range", "duration", "number_of_lessons", "favorite")
+        fields = ("favorite", "no_exp", "exp_range", "duration", "number_of_lessons", "number_of_registered", "number_of_student", "number_of_comlesson", "students")
+
+    def get_students(self, obj):
+        students = obj.course._prefetched_objects_cache['registration'].values_list('student').distinct()
+        return ListStudentDirectSerializer(Student.objects.select_related("user").filter(id__in=students), many=True).data
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['number_of_registered'] = instance.number_of_registered
+        representation['number_of_student'] = instance.number_of_student
+        representation['number_of_comlesson'] = instance.number_of_comlesson
+        representation['students'] = self.get_students(instance)
+        return representation
+
+class ListStudentDirectSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="user.first_name")
+    phone_number = serializers.CharField(source="user.phone_number")
+    email = serializers.CharField(source="user.email")
+    uuid = serializers.CharField(source="user.uuid")
+
+    class Meta:
+        model = StudentTeacherRelation
+        fields = ("name", "phone_number", "email", "uuid", "favorite_student")
 
 class CourseSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
@@ -82,7 +116,10 @@ class CourseSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         print(validated_data)
-        return Course.objects.create(**validated_data)
+        teacher = validated_data.pop("teacher")
+        course = Course.objects.create(**validated_data)
+        teacher.course.add(course)
+        return course
 
     def validate(self, attrs):
         no_exp = attrs.get('no_exp')
@@ -95,6 +132,7 @@ class CourseSerializer(serializers.Serializer):
         user_id = attrs.pop("user_id")
         try: 
             teacher = Teacher.objects.select_related("school").get(user__id=user_id)
+            attrs['teacher'] = teacher
             attrs['school_id'] = teacher.school.id
         except Teacher.DoesNotExist:
             raise serializers.ValidationError({
@@ -147,7 +185,7 @@ class ListLessonDateTimeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "attended")
+        fields = ("booked_datetime", "duration", "status", "code")
 
 class CourseRegistrationSerializer(serializers.Serializer):
     course_id = serializers.CharField()
